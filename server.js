@@ -92,11 +92,20 @@ const query = util.promisify(pool.query).bind(pool);
 
 // ===== MULTER SETUP - DEFINE EARLY =====
 // Logo Storage
+//const logoStorage = multer.diskStorage({
+ // destination: (req, file, cb) => cb(null, "logos/"),
+//  filename: (req, file, cb) => cb(null, file.originalname),
+//});
+//const uploadLogo = multer({ storage: logoStorage });
+const logoDir = path.join(__dirname, "logos");
+if (!fs.existsSync(logoDir)) fs.mkdirSync(logoDir, { recursive: true });
+
 const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "logos/"),
-  filename: (req, file, cb) => cb(null, file.originalname),
+  destination: (req, file, cb) => cb(null, logoDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const uploadLogo = multer({ storage: logoStorage });
+
 
 // Regular uploads
 const storage = multer.diskStorage({
@@ -1652,4 +1661,5 @@ app.use("/gift", express.static(giftDir));
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
+
 });
