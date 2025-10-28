@@ -134,8 +134,8 @@ const uploadgift = multer({ storage: storagegift });
 // Slider directory
 //const SLIDER_DIR = path.join(__dirname, 'slider');
 //if (!fs.existsSync(SLIDER_DIR)) fs.mkdirSync(SLIDER_DIR, { recursive: true });
-const sliderDir = path.join(__dirname, "slider");
-if (!fs.existsSync(sliderDir)) fs.mkdirSync(sliderDir, { recursive: true });
+const  SLIDER_DIR = path.join(__dirname, "slider");
+if (!fs.existsSync( SLIDER_DIR)) fs.mkdirSync( SLIDER_DIR, { recursive: true });
 
 const storageSlider = multer.diskStorage({
   destination: (req, file, cb) => cb(null, sliderDir),
@@ -1679,4 +1679,5 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
