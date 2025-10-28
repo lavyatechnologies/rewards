@@ -108,9 +108,17 @@ const uploadLogo = multer({ storage: logoStorage });
 
 
 // Regular uploads
+//const storage = multer.diskStorage({
+ // destination: (req, file, cb) => cb(null, 'uploads/'),
+ // filename: (req, file, cb) => cb(null, file.originalname)
+//});
+//const upload = multer({ storage });
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, file.originalname)
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
@@ -124,8 +132,16 @@ const storagegift = multer.diskStorage({
 const uploadgift = multer({ storage: storagegift });
 
 // Slider directory
-const SLIDER_DIR = path.join(__dirname, 'slider');
-if (!fs.existsSync(SLIDER_DIR)) fs.mkdirSync(SLIDER_DIR, { recursive: true });
+//const SLIDER_DIR = path.join(__dirname, 'slider');
+//if (!fs.existsSync(SLIDER_DIR)) fs.mkdirSync(SLIDER_DIR, { recursive: true });
+const sliderDir = path.join(__dirname, "slider");
+if (!fs.existsSync(sliderDir)) fs.mkdirSync(sliderDir, { recursive: true });
+
+const storageSlider = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, sliderDir),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
+});
+const uploadSlider = multer({ storage: storageSlider });
 
 // ---------- ROUTES ----------
 
@@ -1663,3 +1679,4 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
