@@ -1671,6 +1671,60 @@ app.post("/api/register-whatsapp", async (req, res) => {
   }
 });
 
+app.get("/CityCategory/login/:id", async (req, res) => {
+  try {
+    const [rows] = await pool.promise().query("CALL sp_GetLoginCityCategory(?)", [req.params.id]);
+    res.json(rows[0]); // first result set
+  } catch (err) {
+    console.error("❌ Error in sp_GetLoginCityCategory:", err);
+    res.status(500).json({ error: "Failed to fetch user city/category." });
+  }
+});
+
+
+// ✅ 2. Get active cities
+app.get("/Active/cities", async (req, res) => {
+  try {
+    const [rows] = await pool.promise().query("CALL sp_GetActiveCities()");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Error in sp_GetActiveCities:", err);
+    res.status(500).json({ error: "Failed to fetch cities." });
+  }
+});
+
+
+// ✅ 3. Get active categories
+app.get("/Active/categories", async (req, res) => {
+  try {
+    const [rows] = await pool.promise().query("CALL sp_GetActiveCategories()");
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Error in sp_GetActiveCategories:", err);
+    res.status(500).json({ error: "Failed to fetch categories." });
+  }
+});
+
+
+// ✅ 4. Update user’s selected city & category
+app.post("/api/updateCityCategory", async (req, res) => {
+  const { fUID, fCityID, fCategoryID } = req.body;
+  if (!fUID || !fCityID || !fCategoryID)
+    return res.status(400).json({ error: "Missing parameters." });
+
+  try {
+    await pool.promise().query("CALL sp_UpdateCityCategory(?, ?, ?)", [fUID, fCityID, fCategoryID]);
+    res.json({ message: "City and Category updated successfully." });
+  } catch (err) {
+    console.error("❌ Error in sp_UpdateCityCategory:", err);
+    res.status(500).json({ error: "Failed to update city/category." });
+  }
+});
+
+
+
+
+
 // Serve images
 app.use("/gift", express.static(giftDir));
 
@@ -1679,5 +1733,6 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
