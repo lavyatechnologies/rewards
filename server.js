@@ -176,7 +176,7 @@ app.post("/api/login", async (req, res) => {
 
   try {
     const sql = `
-      CALL sp_login_user(?, ?, @id, @businessName, @phone, @isEnable, @validityDate, @waApi, @waEnabled, @role, @pointPerc,@IsPointMode, @cityId);
+      CALL sp_login_user(?, ?, @id, @businessName, @phone, @isEnable, @validityDate, @waApi, @waEnabled, @role, @pointPerc,@IsPointMode, @cityId, @maxDeals);
       SELECT 
         @id AS id,
         @businessName AS businessName,
@@ -188,7 +188,8 @@ app.post("/api/login", async (req, res) => {
         @role AS role,
         @pointPerc AS pointPercentage,
           @IsPointMode AS IsPointMode,
-           @cityId AS cityId;
+           @cityId AS cityId,
+            @maxDeals AS maxAllowedDeals; 
         ;
     `;
     const [results] = await pool.promise().query(sql, [mobile, password]);
@@ -1733,6 +1734,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
