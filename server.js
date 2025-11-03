@@ -422,33 +422,33 @@ app.post("/api/add-user", uploadLogo.single("Logo"), async (req, res) => {
     const {
       BusinessName, PhoneNumber, Password, Role, IsEnable,
       WA_enabled, Point_Percentage, WA_API, ValidityDate,
-      CityID, CategoryID, Map, Address, CallContactNo, IsPointMode
+      CityID, CategoryID, Map, Address, CallContactNo, IsPointMode, MaxAllowedDeals
     } = req.body;
 
     const isPointMode = parseInt(IsPointMode) || 0;
 
-    // Step 1: Insert user with empty Logo
+   
     const [result] = await pool.promise().query(
-      "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [
         BusinessName, PhoneNumber, Password, Role,
         IsEnable, WA_enabled , Point_Percentage,
         WA_API || "", ValidityDate, CityID, CategoryID || null,
-        Map || "", Address || "", CallContactNo || "",isPointMode, ""
+        Map || "", Address || "", CallContactNo || "",isPointMode, "", MaxAllowedDeals || 0
       ]
     );
 
     const loginID = result[0][0].LoginID;
     let logoFilename = "";
 
-    // Step 2: Rename uploaded file to LoginID
+   
     if (req.file) {
       const ext = path.extname(req.file.originalname);
       logoFilename = `${loginID}${ext}`;
       const destPath = path.resolve("logos", logoFilename);
       fs.renameSync(req.file.path, destPath);
 
-      // Step 3: Update user with logo filename
+    
       await pool.promise().query(
         "UPDATE login SET Logo = ? WHERE LoginID = ?",
         [logoFilename, loginID]
@@ -469,16 +469,16 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
     const {
       LoginID, BusinessName, PhoneNumber, Password, Role, IsEnable,
       WA_enabled, IsPointMode, Point_Percentage, WA_API, ValidityDate,
-      CityID, CategoryID, Map, Address, CallContactNo
+      CityID, CategoryID, Map, Address, CallContactNo, MaxAllowedDeals
     } = body;
-
+         
     if (!LoginID) return res.status(400).json({ success: false, message: "LoginID is required" });
 
     const isEnable = parseInt(IsEnable) || 0;
     const waEnabled = parseInt(WA_enabled) || 0;
     const isPointMode = parseInt(IsPointMode) || 0;
 
-    // Get existing user
+ 
     const [existingRows] = await pool.promise().query("SELECT Logo FROM login WHERE LoginID = ?", [LoginID]);
     if (existingRows.length === 0) return res.status(404).json({ success: false, message: "User not found" });
 
@@ -489,7 +489,7 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
       const newLogoName = `${LoginID}${ext}`;
       const destPath = path.join(__dirname, "logos", newLogoName);
 
-      // delete old logo if exists
+    
       const oldPath = logoFilename ? path.join(__dirname, "logos", logoFilename) : null;
       if (oldPath && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
 
@@ -501,12 +501,12 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
       `UPDATE login SET
         BusinessName = ?, PhoneNumber = ?, Password = ?, Role = ?, IsEnable = ?, WA_enabled = ?,
         IsPointMode = ?, Point_Percentage = ?, WA_API = ?, ValidityDate = ?, fCityID = ?, fCategoryID = ?,
-        Map = ?, Address = ?, CallContactNo = ?, Logo = ?
+        Map = ?, Address = ?, CallContactNo = ?, Logo = ?, MaxAllowedDeals = ?
       WHERE LoginID = ?`,
       [
         BusinessName || "", PhoneNumber || "", Password || "", Role || "", isEnable, waEnabled,
         isPointMode, Point_Percentage || 0, WA_API || "", ValidityDate || null, CityID || null, CategoryID || null,
-        Map || "", Address || "", CallContactNo || "", logoFilename || "", LoginID
+        Map || "", Address || "", CallContactNo || "", logoFilename || "", MaxAllowedDeals || 0, LoginID
       ]
     );
 
@@ -1734,6 +1734,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
