@@ -680,6 +680,10 @@ app.post("/api/offers", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
+ if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({ success: false, message: "Duplicate Entry" });
+    }
+      
     res.status(500).json({ success: false, message: "Failed to add offer" });
   }
 });
@@ -692,6 +696,10 @@ app.put("/api/offers", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
+  if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({ success: false, message: "Duplicate Entry" });
+    }
+      
     res.status(500).json({ success: false, message: "Failed to update offer" });
   }
 });
@@ -1522,6 +1530,11 @@ app.post("/api/pointsScheme", uploadgift.single("Image"), async (req, res) => {
     res.json({ success: true, id: newId, image: finalImageName });
   } catch (err) {
     console.error("Add/Update scheme error:", err);
+
+ if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({ success: false, message: "Duplicate Entry" });
+    }
+      
     res.status(500).json({ error: "Error saving scheme" });
   }
 });
@@ -1734,6 +1747,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
