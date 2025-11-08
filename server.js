@@ -231,14 +231,26 @@ app.post("/payment-success", async (req, res) => {
     // 2️⃣ Fetch order details from Razorpay to get amount + created_at
     const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
     const amount = orderDetails.amount / 100; // in rupees
-    const createdOn = new Date(orderDetails.created_at * 1000); // Convert to JS date
+   // const createdOn = new Date(orderDetails.created_at * 1000); // Convert to JS date
+// Razorpay created_at UNIX timestamp (seconds)
+const createdOn = new Date(orderDetails.created_at * 1000);
 
+// Convert to IST
+const offset = 5.5 * 60; // IST = UTC + 5:30
+const istDate = new Date(createdOn.getTime() + offset * 60 * 1000);
+
+// Convert to MySQL DATETIME format
+const mysqlDatetime = istDate.toISOString().slice(0, 19).replace('T', ' ');
+
+
+
+      
     // 3️⃣ Insert into DB with Created_ON
     await pool.promise().query("CALL InsertOrder(?, ?, ?, ?)", [
       razorpay_order_id,
       userId,
       amount,
-      createdOn
+      mysqlDatetime
     ]);
 
     // 4️⃣ Update validity (1 year extension)
@@ -1878,6 +1890,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
