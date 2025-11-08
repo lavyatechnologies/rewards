@@ -220,7 +220,7 @@ app.post("/payment-success", async (req, res) => {
 
     // 1️⃣ Verify Razorpay signature
     const generated_signature = crypto
-      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM") // your Razorpay secret
+      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 
@@ -228,27 +228,30 @@ app.post("/payment-success", async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment verification failed!" });
     }
 
-    // 2️⃣ Fetch order details from Razorpay to get the exact amount
+    // 2️⃣ Fetch order details from Razorpay to get amount + created_at
     const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
-    const amount = orderDetails.amount / 100; // convert paise to rupees
+    const amount = orderDetails.amount / 100; // in rupees
+    const createdOn = new Date(orderDetails.created_at * 1000); // Convert to JS date
 
-    // 3️⃣ Insert order into DB
-    await pool.promise().query("CALL InsertOrder(?, ?, ?)", [
+    // 3️⃣ Insert into DB with Created_ON
+    await pool.promise().query("CALL InsertOrder(?, ?, ?, ?)", [
       razorpay_order_id,
       userId,
-      amount
+      amount,
+      createdOn
     ]);
 
-    // 4️⃣ Update user's validity date (1 year ahead)
+    // 4️⃣ Update validity (1 year extension)
     const [rows] = await pool.promise().query("CALL UpdateValidity(?)", [userId]);
     const newValidityRow = Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
     const newValidity = newValidityRow ? newValidityRow.NewValidityDate : null;
 
-    // 5️⃣ Send success response
+    // 5️⃣ Respond to frontend
     res.json({
       success: true,
       message: "Payment verified, order saved, and validity updated!",
       amount,
+      createdOn,
       newValidity
     });
 
@@ -257,6 +260,7 @@ app.post("/payment-success", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 
 
@@ -1874,6 +1878,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
