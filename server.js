@@ -15,7 +15,8 @@ import { Client } from "whatsapp-web.js";
 import qrcode from 'qrcode-terminal';
 import { glob } from "glob";  
 import { promisify } from "util";
-
+import Razorpay from "razorpay";
+import crypto from "crypto";
 // const URL = "http://localhost:3002";
 const app = express();
 app.set('trust proxy', true);
@@ -149,6 +150,132 @@ const uploadSlider = multer({ storage: storageSlider });
 app.get('/check', (req, res) => {
   res.send('Welcome to the API!');
 });
+
+
+
+// Razorpay instance
+const razorpay = new Razorpay({
+  key_id: "rzp_test_RZa5NEeFkZpL4v",
+  key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
+});
+
+// Create order endpoint
+// ✅ Create order endpoint
+app.post("/create-order", async (req, res) => {
+  try {
+    const { amount, currency, loginId } = req.body;
+
+    if (!amount || !loginId) {
+      return res.status(400).json({ success: false, message: "Missing amount or loginId" });
+    }
+
+    const options = {
+      amount: amount * 100, // convert to paise
+      currency: currency || "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
+
+    // 1️⃣ Create Razorpay order
+    const order = await razorpay.orders.create(options);
+
+    // 2️⃣ Check if Razorpay responded successfully
+    if (!order || !order.id || order.status !== "created") {
+      console.error("❌ Razorpay order creation failed:", order);
+      return res.status(400).json({
+        success: false,
+        message: "Failed to create Razorpay order.",
+      });
+    }
+
+    // 3️⃣ Insert into DB only after success
+    // await pool.promise().query("CALL InsertOrder(?, ?, ?)", [
+    //   order.id,          // Razorpay order ID
+    //   loginId,           // User ID
+    //   order.amount / 100 // amount in rupees
+    // ]);
+
+    // 4️⃣ Return success to frontend
+    res.json({
+      success: true,
+      message: "Order created successfully.",
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+  } catch (err) {
+    console.error("❌ Create order error:", err);
+    res.status(500).json({ success: false, message: "Order creation failed" });
+  }
+});
+
+
+// Payment success endpoint
+app.post("/payment-success", async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    // 1️⃣ Verify Razorpay signature
+    const generated_signature = crypto
+      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM") // your Razorpay secret
+      .update(razorpay_order_id + "|" + razorpay_payment_id)
+      .digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({ success: false, message: "Payment verification failed!" });
+    }
+
+    // 2️⃣ Fetch order details from Razorpay to get the exact amount
+    const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
+    const amount = orderDetails.amount / 100; // convert paise to rupees
+
+    // 3️⃣ Insert order into DB
+    await pool.promise().query("CALL InsertOrder(?, ?, ?)", [
+      razorpay_order_id,
+      userId,
+      amount
+    ]);
+
+    // 4️⃣ Update user's validity date (1 year ahead)
+    const [rows] = await pool.promise().query("CALL UpdateValidity(?)", [userId]);
+    const newValidityRow = Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
+    const newValidity = newValidityRow ? newValidityRow.NewValidityDate : null;
+
+    // 5️⃣ Send success response
+    res.json({
+      success: true,
+      message: "Payment verified, order saved, and validity updated!",
+      amount,
+      newValidity
+    });
+
+  } catch (err) {
+    console.error("Payment success error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
+
+app.get("/api/orders", async (req, res) => {
+  try {
+    const [rows] = await pool.promise().query("CALL GetAllOrders()");
+    res.json({ success: true, orders: rows[0] });
+  } catch (err) {
+    console.error("❌ Fetch all orders error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch orders" });
+  }
+});
+
+
+
+
+
 
 // Signup
 app.post('/api/signup', async (req, res) => {
@@ -1747,6 +1874,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
