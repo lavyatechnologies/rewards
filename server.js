@@ -155,8 +155,10 @@ app.get('/check', (req, res) => {
 
 // Razorpay instance
 const razorpay = new Razorpay({
-  key_id: "rzp_test_RZa5NEeFkZpL4v",
-  key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
+  // key_id: "rzp_test_RZa5NEeFkZpL4v",
+  // key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
+  key_id: "rzp_live_Rdueu2VqCCamfY",
+  key_secret: "hXTwI7JxJ8f3ywDDya9FJdzX", 
 });
 
 // Create order endpoint
@@ -1890,6 +1892,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
