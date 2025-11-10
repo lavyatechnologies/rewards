@@ -258,6 +258,19 @@ const mysqlDatetime = istDate.toISOString().slice(0, 19).replace('T', ' ');
       mysqlDatetime
     ]);
 
+const expectedAmount = 2999; // your fixed subscription amount
+
+if (amount !== expectedAmount) {
+  console.warn(`⚠️ Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}.`);
+  return res.status(400).json({
+    success: false,
+    message: `Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}. Validity not updated.`,
+    amount,
+    createdOn: mysqlDatetime,
+  });
+}
+      
+
     // 4️⃣ Update validity (1 year extension)
     const [rows] = await pool.promise().query("CALL UpdateValidity(?)", [userId]);
     const newValidityRow = Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
@@ -1895,6 +1908,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
