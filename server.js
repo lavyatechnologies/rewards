@@ -222,7 +222,10 @@ app.post("/payment-success", async (req, res) => {
 
     // 1️⃣ Verify Razorpay signature
     const generated_signature = crypto
-      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
+      // .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
+.createHmac("sha256", "hXTwI7JxJ8f3ywDDya9FJdzX")
+
+        
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 
@@ -1892,6 +1895,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
