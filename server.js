@@ -155,10 +155,10 @@ app.get('/check', (req, res) => {
 
 // Razorpay instance
 const razorpay = new Razorpay({
-  // key_id: "rzp_test_RZa5NEeFkZpL4v",
-  // key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
-  key_id: "rzp_live_Rdueu2VqCCamfY",
-  key_secret: "hXTwI7JxJ8f3ywDDya9FJdzX", 
+  key_id: "rzp_test_RZa5NEeFkZpL4v",
+  key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
+  // key_id: "rzp_live_Rdueu2VqCCamfY",
+  // key_secret: "hXTwI7JxJ8f3ywDDya9FJdzX", 
 });
 
 // Create order endpoint
@@ -222,8 +222,8 @@ app.post("/payment-success", async (req, res) => {
 
     // 1️⃣ Verify Razorpay signature
     const generated_signature = crypto
-      // .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
-.createHmac("sha256", "hXTwI7JxJ8f3ywDDya9FJdzX")
+      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
+// .createHmac("sha256", "hXTwI7JxJ8f3ywDDya9FJdzX")
 
         
       .update(razorpay_order_id + "|" + razorpay_payment_id)
@@ -363,6 +363,41 @@ app.post("/api/login", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error during login" });
   }
 });
+
+app.post("/api/check-expired", async (req, res) => {
+  const { mobile, password } = req.body;
+
+  if (!mobile || !password) 
+    return res.status(400).json({ success: false, message: "Mobile and password required" });
+
+  try {
+    const sql = `CALL sp_check_expired_user(?, ?, @id, @businessName, @phone, @validityDate);
+                 SELECT @id AS id, @businessName AS businessName, @phone AS mobile, @validityDate AS validityDate;`;
+
+    const [results] = await pool.promise().query(sql, [mobile, password]);
+    const user = results[1][0];
+
+    if (!user || user.id === 0) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    const today = new Date();
+    const validity = new Date(user.validityDate);
+
+    if (validity < today) {
+      return res.json({
+        expired: true,
+        user: { id: user.id, mobile: user.mobile, businessName: user.businessName },
+      });
+    }
+
+    res.json({ expired: false }); // account is not expired
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 
 // Add Customer
 app.post('/api/add-customer', async (req, res) => {
@@ -1908,6 +1943,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
