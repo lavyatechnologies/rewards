@@ -331,13 +331,55 @@ app.post('/api/signup', async (req, res) => {
 });
 
 // Login
+// app.post("/api/login", async (req, res) => {
+//   const { mobile, password } = req.body;
+//   if (!mobile || !password) return res.status(400).json({ success: false, message: "Mobile and password required" });
+
+//   try {
+//     const sql = `
+//       CALL sp_login_user(?, ?, @id, @businessName, @phone, @isEnable, @validityDate, @waApi, @waEnabled, @role, @pointPerc,@IsPointMode, @cityId, @maxDeals);
+//       SELECT 
+//         @id AS id,
+//         @businessName AS businessName,
+//         @phone AS mobile,
+//         @isEnable AS isEnable,
+//         @validityDate AS validityDate,
+//         @waApi AS WA_API,
+//         @waEnabled AS WA_enabled,
+//         @role AS role,
+//         @pointPerc AS pointPercentage,
+//           @IsPointMode AS IsPointMode,
+//            @cityId AS cityId,
+//             @maxDeals AS maxAllowedDeals; 
+//         ;
+//     `;
+//     const [results] = await pool.promise().query(sql, [mobile, password]);
+//     const user = results[1][0];
+
+//     if (user.id && user.id !== 0) return res.json({ success: true, user });
+//     res.json({ success: false, message: "Invalid credentials or account expired/disabled" });
+//   } catch (err) {
+//     console.error("Login error:", err);
+//     res.status(500).json({ success: false, message: "Server error during login" });
+//   }
+// });
+
 app.post("/api/login", async (req, res) => {
   const { mobile, password } = req.body;
-  if (!mobile || !password) return res.status(400).json({ success: false, message: "Mobile and password required" });
+  if (!mobile || !password)
+    return res
+      .status(400)
+      .json({ success: false, message: "Mobile and password required" });
 
   try {
     const sql = `
-      CALL sp_login_user(?, ?, @id, @businessName, @phone, @isEnable, @validityDate, @waApi, @waEnabled, @role, @pointPerc,@IsPointMode, @cityId, @maxDeals);
+      CALL sp_login_user(
+        ?, ?, 
+        @id, @businessName, @phone, @isEnable, @validityDate, @waApi, @waEnabled, 
+        @role, @pointPerc, @IsPointMode, @cityId, @maxDeals, 
+        @renewCost, @planMonths, @rzpKeyId, @rzpKeySecret
+      );
+      
       SELECT 
         @id AS id,
         @businessName AS businessName,
@@ -348,21 +390,68 @@ app.post("/api/login", async (req, res) => {
         @waEnabled AS WA_enabled,
         @role AS role,
         @pointPerc AS pointPercentage,
-          @IsPointMode AS IsPointMode,
-           @cityId AS cityId,
-            @maxDeals AS maxAllowedDeals; 
-        ;
+        @IsPointMode AS IsPointMode,
+        @cityId AS cityId,
+        @maxDeals AS maxAllowedDeals,
+        @renewCost AS renewCost,
+        @planMonths AS planMonths,
+        @rzpKeyId AS rzpKeyId,
+        @rzpKeySecret AS rzpKeySecret;
     `;
+
     const [results] = await pool.promise().query(sql, [mobile, password]);
+
+
     const user = results[1][0];
 
     if (user.id && user.id !== 0) return res.json({ success: true, user });
-    res.json({ success: false, message: "Invalid credentials or account expired/disabled" });
+
+    res.json({
+      success: false,
+      message: "Invalid credentials or account expired/disabled",
+    });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ success: false, message: "Server error during login" });
+    res
+      .status(500)
+      .json({ success: false, message: "Server error during login" });
   }
 });
+
+
+// app.post("/api/check-expired", async (req, res) => {
+//   const { mobile, password } = req.body;
+
+//   if (!mobile || !password) 
+//     return res.status(400).json({ success: false, message: "Mobile and password required" });
+
+//   try {
+//     const sql = `CALL sp_check_expired_user(?, ?, @id, @businessName, @phone, @validityDate);
+//                  SELECT @id AS id, @businessName AS businessName, @phone AS mobile, @validityDate AS validityDate;`;
+
+//     const [results] = await pool.promise().query(sql, [mobile, password]);
+//     const user = results[1][0];
+
+//     if (!user || user.id === 0) {
+//       return res.json({ success: false, message: "Invalid credentials" });
+//     }
+
+//     const today = new Date();
+//     const validity = new Date(user.validityDate);
+
+//     if (validity < today) {
+//       return res.json({
+//         expired: true,
+//         user: { id: user.id, mobile: user.mobile, businessName: user.businessName },
+//       });
+//     }
+
+//     res.json({ expired: false }); // account is not expired
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// });
 
 app.post("/api/check-expired", async (req, res) => {
   const { mobile, password } = req.body;
@@ -371,8 +460,22 @@ app.post("/api/check-expired", async (req, res) => {
     return res.status(400).json({ success: false, message: "Mobile and password required" });
 
   try {
-    const sql = `CALL sp_check_expired_user(?, ?, @id, @businessName, @phone, @validityDate);
-                 SELECT @id AS id, @businessName AS businessName, @phone AS mobile, @validityDate AS validityDate;`;
+    const sql = `
+      CALL sp_check_expired_user(
+        ?, ?, 
+        @id, @businessName, @phone, @validityDate, 
+        @renewCost, @planMonths, @rzpKeyId, @rzpKeySecret
+      );
+      SELECT 
+        @id AS id,
+        @businessName AS businessName,
+        @phone AS mobile,
+        @validityDate AS validityDate,
+        @renewCost AS renewCost,
+        @planMonths AS planMonths,
+        @rzpKeyId AS rzpKeyId,
+        @rzpKeySecret AS rzpKeySecret;
+    `;
 
     const [results] = await pool.promise().query(sql, [mobile, password]);
     const user = results[1][0];
@@ -387,13 +490,21 @@ app.post("/api/check-expired", async (req, res) => {
     if (validity < today) {
       return res.json({
         expired: true,
-        user: { id: user.id, mobile: user.mobile, businessName: user.businessName },
+        user: {
+          id: user.id,
+          mobile: user.mobile,
+          businessName: user.businessName,
+          renewCost: user.renewCost,
+          planMonths: user.planMonths,
+          rzpKeyId: user.rzpKeyId,
+          rzpKeySecret: user.rzpKeySecret
+        },
       });
     }
 
     res.json({ expired: false }); // account is not expired
   } catch (err) {
-    console.error(err);
+    console.error("Check expired error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -1943,6 +2054,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
