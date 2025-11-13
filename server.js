@@ -154,49 +154,88 @@ app.get('/check', (req, res) => {
 
 
 // Razorpay instance
-const razorpay = new Razorpay({
-  key_id: "rzp_test_RZa5NEeFkZpL4v",
-  key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
-  // key_id: "rzp_live_Rdueu2VqCCamfY",
-  // key_secret: "hXTwI7JxJ8f3ywDDya9FJdzX", 
-});
+// const razorpay = new Razorpay({
+//   key_id: "rzp_test_RZa5NEeFkZpL4v",
+//   key_secret: "1K2HFkgh6S5w62GiO6k0tuhM",
+//   key_id: "rzp_live_Rdueu2VqCCamfY",
+//   key_secret: "hXTwI7JxJ8f3ywDDya9FJdzX", 
+// });
 
 // Create order endpoint
 // ✅ Create order endpoint
+// app.post("/create-order", async (req, res) => {
+//   try {
+//     const { amount, currency, loginId } = req.body;
+
+//     if (!amount || !loginId) {
+//       return res.status(400).json({ success: false, message: "Missing amount or loginId" });
+//     }
+
+//     const options = {
+//       amount: amount * 100, // convert to paise
+//       currency: currency || "INR",
+//       receipt: `receipt_${Date.now()}`,
+//     };
+
+//     // 1️⃣ Create Razorpay order
+//     const order = await razorpay.orders.create(options);
+
+//     // 2️⃣ Check if Razorpay responded successfully
+//     if (!order || !order.id || order.status !== "created") {
+//       console.error("❌ Razorpay order creation failed:", order);
+//       return res.status(400).json({
+//         success: false,
+//         message: "Failed to create Razorpay order.",
+//       });
+//     }
+
+//     // 3️⃣ Insert into DB only after success
+//     // await pool.promise().query("CALL InsertOrder(?, ?, ?)", [
+//     //   order.id,          // Razorpay order ID
+//     //   loginId,           // User ID
+//     //   order.amount / 100 // amount in rupees
+//     // ]);
+
+//     // 4️⃣ Return success to frontend
+//     res.json({
+//       success: true,
+//       message: "Order created successfully.",
+//       orderId: order.id,
+//       amount: order.amount,
+//       currency: order.currency,
+//     });
+//   } catch (err) {
+//     console.error("❌ Create order error:", err);
+//     res.status(500).json({ success: false, message: "Order creation failed" });
+//   }
+// });
+
 app.post("/create-order", async (req, res) => {
   try {
-    const { amount, currency, loginId } = req.body;
+    const { amount, currency, loginId, rzpKeySecret, planMonths } = req.body;
 
-    if (!amount || !loginId) {
-      return res.status(400).json({ success: false, message: "Missing amount or loginId" });
+    if (!amount || !loginId || !rzpKeySecret || !planMonths) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    // Razorpay instance (secret key from frontend)
+    const razorpay = new Razorpay({
+      key_id: req.body.rzpKeyId,       // public key (optional here)
+      key_secret: rzpKeySecret         // secret key from frontend
+    });
+
     const options = {
-      amount: amount * 100, // convert to paise
+      amount: amount * 100, // in paise
       currency: currency || "INR",
       receipt: `receipt_${Date.now()}`,
     };
 
-    // 1️⃣ Create Razorpay order
     const order = await razorpay.orders.create(options);
 
-    // 2️⃣ Check if Razorpay responded successfully
     if (!order || !order.id || order.status !== "created") {
-      console.error("❌ Razorpay order creation failed:", order);
-      return res.status(400).json({
-        success: false,
-        message: "Failed to create Razorpay order.",
-      });
+      return res.status(400).json({ success: false, message: "Failed to create Razorpay order." });
     }
 
-    // 3️⃣ Insert into DB only after success
-    // await pool.promise().query("CALL InsertOrder(?, ?, ?)", [
-    //   order.id,          // Razorpay order ID
-    //   loginId,           // User ID
-    //   order.amount / 100 // amount in rupees
-    // ]);
-
-    // 4️⃣ Return success to frontend
     res.json({
       success: true,
       message: "Order created successfully.",
@@ -204,6 +243,7 @@ app.post("/create-order", async (req, res) => {
       amount: order.amount,
       currency: order.currency,
     });
+
   } catch (err) {
     console.error("❌ Create order error:", err);
     res.status(500).json({ success: false, message: "Order creation failed" });
@@ -211,21 +251,123 @@ app.post("/create-order", async (req, res) => {
 });
 
 
+
 // Payment success endpoint
+// app.post("/payment-success", async (req, res) => {
+//   try {
+//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = req.body;
+
+//     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId) {
+//       return res.status(400).json({ success: false, message: "Missing required fields" });
+//     }
+
+//     // 1️⃣ Verify Razorpay signature
+//     const generated_signature = crypto
+//       .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
+// // .createHmac("sha256", "hXTwI7JxJ8f3ywDDya9FJdzX")
+
+        
+//       .update(razorpay_order_id + "|" + razorpay_payment_id)
+//       .digest("hex");
+
+//     if (generated_signature !== razorpay_signature) {
+//       return res.status(400).json({ success: false, message: "Payment verification failed!" });
+//     }
+
+//     // 2️⃣ Fetch order details from Razorpay to get amount + created_at
+//     const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
+//     const amount = orderDetails.amount / 100; // in rupees
+//    // const createdOn = new Date(orderDetails.created_at * 1000); // Convert to JS date
+// // Razorpay created_at UNIX timestamp (seconds)
+// const createdOn = new Date(orderDetails.created_at * 1000);
+
+// // Convert to IST
+// const offset = 5.5 * 60; // IST = UTC + 5:30
+// const istDate = new Date(createdOn.getTime() + offset * 60 * 1000);
+
+// // Convert to MySQL DATETIME format
+// const mysqlDatetime = istDate.toISOString().slice(0, 19).replace('T', ' ');
+
+
+
+      
+//     // 3️⃣ Insert into DB with Created_ON
+//     await pool.promise().query("CALL InsertOrder(?, ?, ?, ?)", [
+//       razorpay_order_id,
+//       userId,
+//       amount,
+//       mysqlDatetime
+//     ]);
+
+// const expectedAmount = 2999; // your fixed subscription amount
+
+// if (amount !== expectedAmount) {
+//   console.warn(`⚠️ Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}.`);
+//   return res.status(400).json({
+//     success: false,
+//     message: `Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}. Validity not updated.`,
+//     amount,
+//     createdOn: mysqlDatetime,
+//   });
+// }
+      
+
+//     // 4️⃣ Update validity (1 year extension)
+//     const [rows] = await pool.promise().query("CALL UpdateValidity(?)", [userId]);
+//     const newValidityRow = Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
+//     const newValidity = newValidityRow ? newValidityRow.NewValidityDate : null;
+
+//     // 5️⃣ Respond to frontend
+//     res.json({
+//       success: true,
+//       message: "Payment verified, order saved, and validity updated!",
+//       amount,
+//       createdOn,
+//       newValidity
+//     });
+
+//   } catch (err) {
+//     console.error("Payment success error:", err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// });
+
 app.post("/payment-success", async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = req.body;
+     console.log("Payment-success req.body:", req.body);
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      userId,
+      rzpKeyId,
+      rzpKeySecret,
+      planMonths,
+      renewCost
+    } = req.body;
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !userId) {
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature ||
+      !userId ||
+      !rzpKeyId ||
+      !rzpKeySecret ||
+      !planMonths ||
+      !renewCost
+    ) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    // Instantiate Razorpay with both keys
+    const razorpay = new Razorpay({
+      key_id: rzpKeyId,
+      key_secret: rzpKeySecret,
+    });
+
     // 1️⃣ Verify Razorpay signature
     const generated_signature = crypto
-      .createHmac("sha256", "1K2HFkgh6S5w62GiO6k0tuhM")
-// .createHmac("sha256", "hXTwI7JxJ8f3ywDDya9FJdzX")
-
-        
+      .createHmac("sha256", rzpKeySecret)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");
 
@@ -233,47 +375,51 @@ app.post("/payment-success", async (req, res) => {
       return res.status(400).json({ success: false, message: "Payment verification failed!" });
     }
 
-    // 2️⃣ Fetch order details from Razorpay to get amount + created_at
+    // 2️⃣ Fetch order details from Razorpay
     const orderDetails = await razorpay.orders.fetch(razorpay_order_id);
-    const amount = orderDetails.amount / 100; // in rupees
-   // const createdOn = new Date(orderDetails.created_at * 1000); // Convert to JS date
-// Razorpay created_at UNIX timestamp (seconds)
-const createdOn = new Date(orderDetails.created_at * 1000);
-
-// Convert to IST
-const offset = 5.5 * 60; // IST = UTC + 5:30
-const istDate = new Date(createdOn.getTime() + offset * 60 * 1000);
-
-// Convert to MySQL DATETIME format
-const mysqlDatetime = istDate.toISOString().slice(0, 19).replace('T', ' ');
+    const amount = orderDetails.amount / 100; // in INR
+    const createdOn = new Date(orderDetails.created_at * 1000);
 
 
+  if (Number(amount) !== Number(renewCost)) {
+      return res.status(400).json({
+        success: false,
+        message: `Payment amount mismatch! Expected ₹${renewCost}, but got ₹${amount}.`,
+      });
+    }
 
-      
-    // 3️⃣ Insert into DB with Created_ON
-    await pool.promise().query("CALL InsertOrder(?, ?, ?, ?)", [
-      razorpay_order_id,
-      userId,
-      amount,
-      mysqlDatetime
-    ]);
 
-const expectedAmount = 2999; // your fixed subscription amount
 
-if (amount !== expectedAmount) {
-  console.warn(`⚠️ Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}.`);
-  return res.status(400).json({
-    success: false,
-    message: `Amount mismatch! Paid ₹${amount}, expected ₹${expectedAmount}. Validity not updated.`,
-    amount,
-    createdOn: mysqlDatetime,
-  });
-}
-      
 
-    // 4️⃣ Update validity (1 year extension)
-    const [rows] = await pool.promise().query("CALL UpdateValidity(?)", [userId]);
-    const newValidityRow = Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
+    // Convert to IST
+    const offset = 5.5 * 60; // IST = UTC + 5:30
+    const istDate = new Date(createdOn.getTime() + offset * 60 * 1000);
+    const mysqlDatetime = istDate.toISOString().slice(0, 19).replace("T", " ");
+
+    // 3️⃣ Insert order into DB
+    // await pool.promise().query("CALL InsertOrder(?, ?, ?, ?)", [
+    //   razorpay_order_id,
+    //   userId,
+    //   amount,
+    //   mysqlDatetime,
+    // ]);
+
+    // 4️⃣ Update validity based on planMonths from frontend
+    // const [rows] = await pool
+    //   .promise()
+    //   .query("CALL UpdateValidity(?, ?)", [userId, planMonths]); // Updated SP should accept planMonths
+
+const [rows] = await pool.promise().query("CALL InsertOrderAndUpdateValidity(?, ?, ?, ?, ?)", [
+  razorpay_order_id,
+  userId,
+  amount,
+  mysqlDatetime,
+  planMonths,
+]);
+
+
+    const newValidityRow =
+      Array.isArray(rows) && rows[0] && rows[0][0] ? rows[0][0] : null;
     const newValidity = newValidityRow ? newValidityRow.NewValidityDate : null;
 
     // 5️⃣ Respond to frontend
@@ -281,17 +427,14 @@ if (amount !== expectedAmount) {
       success: true,
       message: "Payment verified, order saved, and validity updated!",
       amount,
-      createdOn,
-      newValidity
+      createdOn: mysqlDatetime,
+      newValidity,
     });
-
   } catch (err) {
     console.error("Payment success error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
-
 
 
 
@@ -721,41 +864,106 @@ app.get("/api/users", async (req, res) => {
 });
 
 // Add User with Logo
+// app.post("/api/add-user", uploadLogo.single("Logo"), async (req, res) => {
+//   const IsEnable = parseInt(req.body.IsEnable) || 0;
+//   const WA_enabled= parseInt(req.body.WA_enabled) || 0;
+  
+//   try {
+//     const {
+//       BusinessName, PhoneNumber, Password, Role, IsEnable,
+//       WA_enabled, Point_Percentage, WA_API, ValidityDate,
+//       CityID, CategoryID, Map, Address, CallContactNo, IsPointMode, MaxAllowedDeals
+//     } = req.body;
+
+//     const isPointMode = parseInt(IsPointMode) || 0;
+
+   
+//     const [result] = await pool.promise().query(
+//       "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+//       [
+//         BusinessName, PhoneNumber, Password, Role,
+//         IsEnable, WA_enabled , Point_Percentage,
+//         WA_API || "", ValidityDate, CityID, CategoryID || null,
+//         Map || "", Address || "", CallContactNo || "",isPointMode, "", MaxAllowedDeals || 0
+//       ]
+//     );
+
+//     const loginID = result[0][0].LoginID;
+//     let logoFilename = "";
+
+   
+//     if (req.file) {
+//       const ext = path.extname(req.file.originalname);
+//       logoFilename = `${loginID}${ext}`;
+//       const destPath = path.resolve("logos", logoFilename);
+//       fs.renameSync(req.file.path, destPath);
+
+    
+//       await pool.promise().query(
+//         "UPDATE login SET Logo = ? WHERE LoginID = ?",
+//         [logoFilename, loginID]
+//       );
+//     }
+
+//     res.json({ success: true, loginID, logo: logoFilename });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// });
+
 app.post("/api/add-user", uploadLogo.single("Logo"), async (req, res) => {
   const IsEnable = parseInt(req.body.IsEnable) || 0;
   const WA_enabled= parseInt(req.body.WA_enabled) || 0;
   
-  try {
+  // try {
+  //   const {
+  //     BusinessName, PhoneNumber, Password, Role, IsEnable,
+  //     WA_enabled, Point_Percentage, WA_API, ValidityDate,
+  //     CityID, CategoryID, Map, Address, CallContactNo, IsPointMode, MaxAllowedDeals
+  //   } = req.body;
+   try {
     const {
       BusinessName, PhoneNumber, Password, Role, IsEnable,
       WA_enabled, Point_Percentage, WA_API, ValidityDate,
-      CityID, CategoryID, Map, Address, CallContactNo, IsPointMode, MaxAllowedDeals
+      CityID, CategoryID, Map, Address, CallContactNo, IsPointMode, MaxAllowedDeals,Renew_Cost, Plan_Months
     } = req.body;
 
     const isPointMode = parseInt(IsPointMode) || 0;
 
-   
+    // Step 1: Insert user with empty Logo
+    // const [result] = await pool.promise().query(
+    //   "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    //   [
+    //     BusinessName, PhoneNumber, Password, Role,
+    //     IsEnable, WA_enabled , Point_Percentage,
+    //     WA_API || "", ValidityDate, CityID, CategoryID || null,
+    //     Map || "", Address || "", CallContactNo || "",isPointMode, "", MaxAllowedDeals || 0
+    //   ]
+    // );
+
     const [result] = await pool.promise().query(
-      "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      [
-        BusinessName, PhoneNumber, Password, Role,
-        IsEnable, WA_enabled , Point_Percentage,
-        WA_API || "", ValidityDate, CityID, CategoryID || null,
-        Map || "", Address || "", CallContactNo || "",isPointMode, "", MaxAllowedDeals || 0
-      ]
-    );
+  "CALL sp_add_user(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+  [
+    BusinessName, PhoneNumber, Password, Role,
+    IsEnable, WA_enabled , Point_Percentage,
+    WA_API || "", ValidityDate, CityID, CategoryID || null,
+    Map || "", Address || "", CallContactNo || "", isPointMode, "", MaxAllowedDeals || 0,
+    Renew_Cost || 0, Plan_Months || 0
+  ]
+);
 
     const loginID = result[0][0].LoginID;
     let logoFilename = "";
 
-   
+    // Step 2: Rename uploaded file to LoginID
     if (req.file) {
       const ext = path.extname(req.file.originalname);
       logoFilename = `${loginID}${ext}`;
       const destPath = path.resolve("logos", logoFilename);
       fs.renameSync(req.file.path, destPath);
 
-    
+      // Step 3: Update user with logo filename
       await pool.promise().query(
         "UPDATE login SET Logo = ? WHERE LoginID = ?",
         [logoFilename, loginID]
@@ -770,14 +978,76 @@ app.post("/api/add-user", uploadLogo.single("Logo"), async (req, res) => {
 });
 
 // Update User
+// app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
+//   try {
+//     const body = req.body || {};
+//     const {
+//       LoginID, BusinessName, PhoneNumber, Password, Role, IsEnable,
+//       WA_enabled, IsPointMode, Point_Percentage, WA_API, ValidityDate,
+//       CityID, CategoryID, Map, Address, CallContactNo, MaxAllowedDeals
+//     } = body;
+         
+//     if (!LoginID) return res.status(400).json({ success: false, message: "LoginID is required" });
+
+//     const isEnable = parseInt(IsEnable) || 0;
+//     const waEnabled = parseInt(WA_enabled) || 0;
+//     const isPointMode = parseInt(IsPointMode) || 0;
+
+ 
+//     const [existingRows] = await pool.promise().query("SELECT Logo FROM login WHERE LoginID = ?", [LoginID]);
+//     if (existingRows.length === 0) return res.status(404).json({ success: false, message: "User not found" });
+
+//     let logoFilename = existingRows[0].Logo;
+
+//     if (req.file) {
+//       const ext = path.extname(req.file.originalname);
+//       const newLogoName = `${LoginID}${ext}`;
+//       const destPath = path.join(__dirname, "logos", newLogoName);
+
+    
+//       const oldPath = logoFilename ? path.join(__dirname, "logos", logoFilename) : null;
+//       if (oldPath && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+
+//       fs.renameSync(req.file.path, destPath);
+//       logoFilename = newLogoName;
+//     }
+
+//     await pool.promise().query(
+//       `UPDATE login SET
+//         BusinessName = ?, PhoneNumber = ?, Password = ?, Role = ?, IsEnable = ?, WA_enabled = ?,
+//         IsPointMode = ?, Point_Percentage = ?, WA_API = ?, ValidityDate = ?, fCityID = ?, fCategoryID = ?,
+//         Map = ?, Address = ?, CallContactNo = ?, Logo = ?, MaxAllowedDeals = ?
+//       WHERE LoginID = ?`,
+//       [
+//         BusinessName || "", PhoneNumber || "", Password || "", Role || "", isEnable, waEnabled,
+//         isPointMode, Point_Percentage || 0, WA_API || "", ValidityDate || null, CityID || null, CategoryID || null,
+//         Map || "", Address || "", CallContactNo || "", logoFilename || "", MaxAllowedDeals || 0, LoginID
+//       ]
+//     );
+
+//     res.json({ success: true, message: "User updated", logo: logoFilename });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Server error", error: err.message });
+//   }
+// });
+
 app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
   try {
     const body = req.body || {};
-    const {
+    // const {
+    //   LoginID, BusinessName, PhoneNumber, Password, Role, IsEnable,
+    //   WA_enabled, IsPointMode, Point_Percentage, WA_API, ValidityDate,
+    //   CityID, CategoryID, Map, Address, CallContactNo, MaxAllowedDeals
+    // } = body;
+
+const {
       LoginID, BusinessName, PhoneNumber, Password, Role, IsEnable,
       WA_enabled, IsPointMode, Point_Percentage, WA_API, ValidityDate,
-      CityID, CategoryID, Map, Address, CallContactNo, MaxAllowedDeals
+      CityID, CategoryID, Map, Address, CallContactNo, MaxAllowedDeals, Renew_Cost, Plan_Months 
     } = body;
+
+
          
     if (!LoginID) return res.status(400).json({ success: false, message: "LoginID is required" });
 
@@ -785,7 +1055,7 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
     const waEnabled = parseInt(WA_enabled) || 0;
     const isPointMode = parseInt(IsPointMode) || 0;
 
- 
+    // Get existing user
     const [existingRows] = await pool.promise().query("SELECT Logo FROM login WHERE LoginID = ?", [LoginID]);
     if (existingRows.length === 0) return res.status(404).json({ success: false, message: "User not found" });
 
@@ -796,7 +1066,7 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
       const newLogoName = `${LoginID}${ext}`;
       const destPath = path.join(__dirname, "logos", newLogoName);
 
-    
+      // delete old logo if exists
       const oldPath = logoFilename ? path.join(__dirname, "logos", logoFilename) : null;
       if (oldPath && fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
 
@@ -804,18 +1074,35 @@ app.put("/api/update-user", uploadLogo.single("Logo"), async (req, res) => {
       logoFilename = newLogoName;
     }
 
-    await pool.promise().query(
-      `UPDATE login SET
-        BusinessName = ?, PhoneNumber = ?, Password = ?, Role = ?, IsEnable = ?, WA_enabled = ?,
-        IsPointMode = ?, Point_Percentage = ?, WA_API = ?, ValidityDate = ?, fCityID = ?, fCategoryID = ?,
-        Map = ?, Address = ?, CallContactNo = ?, Logo = ?, MaxAllowedDeals = ?
-      WHERE LoginID = ?`,
-      [
-        BusinessName || "", PhoneNumber || "", Password || "", Role || "", isEnable, waEnabled,
-        isPointMode, Point_Percentage || 0, WA_API || "", ValidityDate || null, CityID || null, CategoryID || null,
-        Map || "", Address || "", CallContactNo || "", logoFilename || "", MaxAllowedDeals || 0, LoginID
-      ]
-    );
+    // await pool.promise().query(
+    //   `UPDATE login SET
+    //     BusinessName = ?, PhoneNumber = ?, Password = ?, Role = ?, IsEnable = ?, WA_enabled = ?,
+    //     IsPointMode = ?, Point_Percentage = ?, WA_API = ?, ValidityDate = ?, fCityID = ?, fCategoryID = ?,
+    //     Map = ?, Address = ?, CallContactNo = ?, Logo = ?, MaxAllowedDeals = ?
+    //   WHERE LoginID = ?`,
+    //   [
+    //     BusinessName || "", PhoneNumber || "", Password || "", Role || "", isEnable, waEnabled,
+    //     isPointMode, Point_Percentage || 0, WA_API || "", ValidityDate || null, CityID || null, CategoryID || null,
+    //     Map || "", Address || "", CallContactNo || "", logoFilename || "", MaxAllowedDeals || 0, LoginID
+    //   ]
+    // );
+
+await pool.promise().query(
+  `UPDATE login SET
+    BusinessName = ?, PhoneNumber = ?, Password = ?, Role = ?, IsEnable = ?, WA_enabled = ?,
+    IsPointMode = ?, Point_Percentage = ?, WA_API = ?, ValidityDate = ?, fCityID = ?, fCategoryID = ?,
+    Map = ?, Address = ?, CallContactNo = ?, Logo = ?, MaxAllowedDeals = ?, Renew_Cost = ?, Plan_Months = ?
+  WHERE LoginID = ?`,
+  [
+    BusinessName || "", PhoneNumber || "", Password || "", Role || "", isEnable, waEnabled,
+    isPointMode, Point_Percentage || 0, WA_API || "", ValidityDate || null, CityID || null, CategoryID || null,
+    Map || "", Address || "", CallContactNo || "", logoFilename || "", MaxAllowedDeals || 0,
+    Renew_Cost || 0, Plan_Months || 0, LoginID
+  ]
+);
+
+
+
 
     res.json({ success: true, message: "User updated", logo: logoFilename });
   } catch (err) {
@@ -2054,6 +2341,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
