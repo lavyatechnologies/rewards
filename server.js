@@ -2330,6 +2330,37 @@ app.post("/api/updateCityCategory", async (req, res) => {
 });
 
 
+app.get("/get-configuration", async (req, res) => {
+  try {
+    const [rows] = await pool.promise().query("CALL sp_get_configuration()");
+    res.json(rows[0][0]); // first row of first result set
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch configuration" });
+  }
+});
+
+// POST update configuration
+app.post("/update-configuration", async (req, res) => {
+  const { rzp_key_id, rzp_key_secret, default_Renew_Cost, default_Plan_Months } = req.body;
+  try {
+    await pool
+      .promise()
+      .query("CALL sp_update_configuration(?, ?, ?, ?)", [
+        rzp_key_id,
+        rzp_key_secret,
+        default_Renew_Cost,
+        default_Plan_Months,
+      ]);
+    res.json({ message: "Configuration updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to update configuration" });
+  }
+});
+
+
+
 
 
 
@@ -2341,6 +2372,7 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 
 });
+
 
 
 
